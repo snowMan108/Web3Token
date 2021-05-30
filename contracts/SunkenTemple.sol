@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./Chamber.sol";
 
-contract SunkenTemple is Ownable{
+contract SunkenTemple {
     using SafeMath for uint256;
     
     uint256 public throneFee;
@@ -17,6 +16,8 @@ contract SunkenTemple is Ownable{
     uint256 public lockedThroneFee;
     mapping (address => uint256) balances;
     uint8[4] private statues;
+    uint256 constant miningCooldown = 1 days;
+    uint256 cooldownTime;
     
     event Explore(address addr, string chamberName, uint256 amountPaid);
     event TreasureFound(address addr, uint8 position);
@@ -50,6 +51,16 @@ contract SunkenTemple is Ownable{
             GameOver(msg.sender);
         }
         emit Explore(msg.sender, _roomName, msg.value);
+    }
+    
+    function MineResources() public {
+        require(msg.sender == throneHolder && treasury > 0, "Unauthorized");
+        require(block.timestamp > cooldownTime);
+        uint256 amount = treasury / 100; // 1% of the funds
+        amount = amount == 0 ? 1: amount; // Minimum of 1
+        treasury -= amount;
+        balances[msg.sender] += amount;
+        cooldownTime = block.timestamp + miningCooldown;
     }
 
     function GameOver(address winner) private {
