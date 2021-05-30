@@ -42,7 +42,7 @@ contract SunkenTemple is Ownable{
         lockedThroneFee = priceDelta - amount; // The rest gets locked
         throneFee = msg.value;
         throneHolder = payable(msg.sender);
-        occupySpace(gridMap, _newPos);
+        gridMap = occupySpace(gridMap, uint256(_newPos));
         gridPosition = _newPos;
         chamber.safeMint(msg.sender, _roomName); // Mint the chamber and give ownership to new throne holder
         CheckForTreasure(_newPos);
@@ -97,6 +97,9 @@ contract SunkenTemple is Ownable{
     function ValidateMovement(uint8 _newPos) private view returns (bool){
         uint8 pos = gridPosition;
         uint8 map = uint8(gridMap);
+        if(isOccupied(gridMap, _newPos)) {
+            return false;
+        }
         //Check if all adjacent to current position are taken first
         if (isDeadEnd(map, pos)) {
             return hasAdjacent(map, _newPos);
