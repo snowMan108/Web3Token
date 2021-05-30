@@ -30,6 +30,7 @@ npm-debug.log
 .env
 .key
 .secret
+*.secret
 
 # truffle build directory
 build/
