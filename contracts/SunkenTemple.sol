@@ -59,6 +59,7 @@ contract SunkenTemple {
         uint256 amount = treasury / 100; // 1% of the funds
         amount = amount == 0 ? 1: amount; // Minimum of 1
         treasury -= amount;
+        throneFee -= amount;
         balances[msg.sender] += amount;
         cooldownTime = block.timestamp + miningCooldown;
     }
@@ -72,7 +73,7 @@ contract SunkenTemple {
         uint256 amount = treasury / chamber.maxSupply();
         for(uint i = 0; i < chamber.maxSupply(); i++){
             balances[chamber.ownerOf(i)].add(amount);
-            treasury.sub(amount);
+            treasury -= amount;
         }
         balances[winner].add(treasury);
         treasury = 0;
