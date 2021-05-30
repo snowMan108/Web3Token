@@ -11,30 +11,41 @@ contract SunkenTemple is Ownable{
     uint256 public throneFee;
     uint256 public treasury;
     uint256 gridMap;
-    uint8 gridPosition;
+    uint8 public gridPosition;
     RuinChamber public chamber;
     address payable public throneHolder;
-    uint256 lockedThroneFee;
+    uint256 public lockedThroneFee;
     mapping (address => uint256) balances;
+    uint8[4] private statues;
     
     event Explore(address addr, string chamberName, uint256 amountPaid);
+    event TreasureFound(address addr, uint8 position);
     
-    constructor(uint256 _initialEntryFee) {
-        throneFee = _initialEntryFee;
+    constructor() {
         chamber = new RuinChamber(256);
+        statues[0] = uint8(uint(keccak256(abi.encodePacked(block.difficulty+1, block.timestamp))) % 256);
+        statues[1] = uint8(uint(keccak256(abi.encodePacked(block.difficulty+2, block.timestamp))) % 256);
+        statues[2] = uint8(uint(keccak256(abi.encodePacked(block.difficulty+3, block.timestamp))) % 256);
+        statues[3] = uint8(uint(keccak256(abi.encodePacked(block.difficulty+4, block.timestamp))) % 256);
+        gridPosition = uint8(uint(keccak256(abi.encodePacked("Good luck", block.timestamp))) % 256);
     }
     
     function StealThrone(uint8 _newPos, string memory _roomName) external payable{
         require(msg.sender != throneHolder && msg.value >= minPrice(throneFee));
         require(ValidateMovement(_newPos), "IllegalMove");
         require(!chamber.isFull(), "GameOver");
-        balances[throneHolder].add(lockedThroneFee); // Give back the locked fee to the old holder
+        balances[throneHolder] += lockedThroneFee; // Give back the locked fee to the old holder
         uint256 priceDelta = msg.value - throneFee;
-        treasury.add(priceDelta.div(10)); // 10% of the difference in price goes to the treasury
-        lockedThroneFee = (priceDelta.div(10)).mul(9); // The other 90% gets locked
-        chamber.safeMint(msg.sender, _roomName); // Mint the chamber and give ownership to new throne holder
+        uint256 amount = priceDelta / 10;
+        amount = amount == 0 ? 1 : amount; // Round up to 1 if it's 0
+        treasury += amount; // 10% of the difference in price goes to the treasury
+        lockedThroneFee = priceDelta - amount; // The rest gets locked
         throneFee = msg.value;
         throneHolder = payable(msg.sender);
+        occupySpace(gridMap, _newPos);
+        gridPosition = _newPos;
+        chamber.safeMint(msg.sender, _roomName); // Mint the chamber and give ownership to new throne holder
+        CheckForTreasure(_newPos);
         if(chamber.isFull()){
             GameOver(msg.sender);
         }
@@ -44,14 +55,27 @@ contract SunkenTemple is Ownable{
     function GameOver(address winner) private {
         treasury.add(lockedThroneFee);
         lockedThroneFee = 0;
-        uint256 half = treasury.div(2);
+        uint256 half = treasury / 2;
+        balances[winner] = treasury - half;
         treasury = half;
-        balances[winner] = half;
-        uint256 amount = treasury.div(chamber.maxSupply());
+        uint256 amount = treasury / chamber.maxSupply();
         for(uint i = 0; i < chamber.maxSupply(); i++){
             balances[chamber.ownerOf(i)].add(amount);
+            treasury.sub(amount);
         }
+        balances[winner].add(treasury);
         treasury = 0;
+    }
+    
+    function CheckForTreasure(uint8 _pos) private {
+        for(uint i = 0; i < statues.length; i++){
+            if(_pos == statues[i]){
+                uint256 amount = treasury/4;
+                treasury.sub(amount);
+                balances[throneHolder].add(amount);
+                emit TreasureFound(throneHolder, _pos);
+            }
+        }
     }
 
     function Withdraw() public returns (bool) {
@@ -64,6 +88,10 @@ contract SunkenTemple is Ownable{
             }
         }
         return true;
+    }
+    
+    function CheckBalance(address _address) external view returns (uint256){
+        return balances[_address];
     }
     
     function ValidateMovement(uint8 _newPos) private view returns (bool){
@@ -139,6 +167,7 @@ contract SunkenTemple is Ownable{
     * @dev Returns the position in that direction with wrapping.
     */
     function moveTo(uint8 pos, Direction direction) internal pure returns (uint8) {
+        unchecked {
         if (direction == Direction.North) return pos-16;
         if (direction == Direction.Northeast){
             // Edge Wrap-Around Math
@@ -179,13 +208,18 @@ contract SunkenTemple is Ownable{
             return pos-17;
         }
         return pos;
+        }
     }
 
     /**
     * @dev Calculates the throne fee based on a 5% increase.
     */
     function minPrice(uint256 _basePrice) private pure returns (uint){
-        return _basePrice + _basePrice.div(20);
+        return _basePrice + _basePrice/20;
+    }
+    
+    function contractBalance() external view returns (uint){
+        return address(this).balance;
     }
 
 }
