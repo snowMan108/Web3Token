@@ -28,6 +28,10 @@ contract RuinChamber is ERC721, Ownable {
         return uint(seeds[_id]);
     }
 
+    function isFull() external view returns (bool){
+        return (_tokenIdCounter._value == maxSupply);
+    }
+
     /**
      * @dev Checks for alphanumeric characters only and length between 1-25 characters.
      */
